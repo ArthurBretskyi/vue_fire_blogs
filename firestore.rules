@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /* ──────── USERS ──────── */
+    match /users/{userId} {
+      // читати може власник або адміністратор
+      allow read: if request.auth != null &&
+        (request.auth.uid == userId || isAdmin());
+
+      // створювати профіль може лише власник
+      allow create: if request.auth != null &&
+        request.auth.uid == userId;
+
+      // оновлювати можуть: власник або адміністратор
+      allow update: if request.auth != null &&
+        (request.auth.uid == userId || isAdmin());
+    }
+
+    /* ──────── BLOGS ──────── */
+    match /blogs/{blogId} {
+      // будь-хто авторизований може читати
+      allow read: if request.auth != null;
+
+      // будь-хто авторизований може створити
+      allow create: if request.auth != null;
+
+      // редагувати або видалити — тільки автор або адмін
+      allow update, delete: if request.auth != null &&
+        (resource.data.authorID == request.auth.uid || isAdmin());
+    }
+
+    /* ──────── ADMIN-ONLY DATA ──────── */
+    match /adminData/{docId} {
+      allow read, write: if request.auth != null && isAdmin();
+    }
+
+    /* ──────── ХЕЛПЕР ──────── */
+    function isAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid))
+               .data.role == "admin";
+    }
+  }
+}
